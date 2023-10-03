@@ -264,6 +264,85 @@ void parse_token_list(t_node **head, t_token **token_list) {
 	}
 }
 
+int execute(t_node *temp) {
+	int fd[2];
+	int has_pipe = (temp->next && temp->next->logical_type == PIPE);
+
+	// If it has pipe, create pipe
+	if (has_pipe) {
+		pipe(fd);
+				printf("pipe created fd[0] : %d | fd[1] : %d\n", fd[0], fd[1]);
+		if (fork() == 0) {
+			close(STDOUT_FILENO);
+			dup(fd[1]);
+			close(fd[0]);
+			close(fd[1]);
+			exec(temp->command_arg[0], temp->command_arg);
+			// Print error if exec function fail
+			fprintf(2, "Cannot execute %s\n", temp->command_arg[0]);
+			exit(1);
+		}
+	}
+
+	// Create a child process
+	int pid = fork();
+
+	// Child process (pid == 0)
+	if (pid == 0) {
+		fprintf(1, "child process (pid=%d)\n", getpid());
+
+		// If it has redirect, redirect output
+		if (temp->redirect_filename) {
+			close(STDOUT_FILENO);
+			open(temp->redirect_filename, O_WRONLY | O_CREATE | O_TRUNC);
+		}
+
+		// If it has pipe
+		if (has_pipe) {
+			close(STDIN_FILENO);
+			dup(fd[0]);
+			close(fd[0]);
+			close(fd[1]);
+			execute(temp->next);
+			exit(1);
+		}
+			// No pipe
+		else {
+			// Execute command
+			exec(temp->command_arg[0], temp->command_arg);
+			// Print error if exec function fail
+			fprintf(2, "Cannot execute %s\n", temp->command_arg[0]);
+			exit(1);
+		}
+
+	}
+		// Parent process (pid > 0)
+	else if (pid > 0) {
+		// The parent waits for a child process to finish.
+		// wait(NULL) is equivalent to waitpid(/*pid*/ -1, /*status*/ NULL, /*option*/ 0);
+
+		// If it has pipe
+		if (has_pipe) {
+			close(fd[0]);
+			close(fd[1]);
+			wait(NULL);
+		}
+
+		// If it needs to execute background, do not wait for child process to finish
+		if (!temp->is_background) {
+			wait(NULL);
+		}
+
+		fprintf(2, "parent process (pid=%d) of child process (pid=%d)\n", getpid(), pid);
+	}
+		// fork failed (pid < 0)
+	else {
+		// Print error if fork function fail
+		fprintf(2, "fork() failed\n");
+		return (1);
+	}
+	return (1);
+}
 
 // Run a command.
 int runcmd(char *cmd) {
@@ -299,71 +378,12 @@ int runcmd(char *cmd) {
 
 		t_node *temp = node_list;
 		while (temp) {
-			int fd[2];
-			int has_pipe = (temp->next && temp->next->logical_type == PIPE);
-
-			// If it has pipe, create pipe
-			if (has_pipe) {
-				pipe(fd);
-//				printf("pipe created fd[0] : %d | fd[1] : %d\n", fd[0], fd[1]);
-			}
-
-			// Create a child process
-			int pid = fork();
-
-			// Child process (pid == 0)
-			if (pid == 0) {
-				fprintf(1, "child process (pid=%d)\n", getpid());
-
-				// If it has redirect, redirect output
-				if (temp->redirect_filename) {
-					close(STDOUT_FILENO);
-					open(temp->redirect_filename, O_WRONLY | O_CREATE | O_TRUNC);
-				}
-
-				// If it has pipe
-				if (has_pipe) {
-					close(STDOUT_FILENO);
-					dup(fd[1]);
-					close(fd[0]);
-					close(fd[1]);
-				}
-
-				// Execute command
-				exec(temp->command_arg[0], temp->command_arg);
-
-				// Print error if exec function fail
-				fprintf(2, "Cannot execute %s\n", temp->command_arg[0]);
-				exit(1);
-			}
-				// Parent process (pid > 0)
-			else if (pid > 0) {
-				// The parent waits for a child process to finish.
-				// wait(NULL) is equivalent to waitpid(/*pid*/ -1, /*status*/ NULL, /*option*/ 0);
-
-
-				// If it needs to execute background, do not wait for child process to finish
-				if (!temp->is_background) {
-					wait(NULL);
-				}
-
-				// If it has pipe
-				if (has_pipe) {
-					close(STDIN_FILENO);
-					dup(fd[0]);
-					close(fd[0]);
-					close(fd[1]);
-				}
-				fprintf(2, "parent process (pid=%d) of child process (pid=%d)\n", getpid(), pid);
-			}
-				// fork failed (pid < 0)
-			else {
-				// Print error if fork function fail
-				fprintf(2, "fork() failed\n");
+			if (!execute(temp))
 				return (1);
-			}
 			// Execute next node
 			temp = temp->next;
+			while (temp && temp->logical_type == PIPE)
+				temp = temp->next;
 		}
 
 //		// print node
