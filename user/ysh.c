@@ -45,51 +45,49 @@ int main(int argc, char **argv) {
 }
 
 #define NULL 0
+#define STDIN_FILENO 0
+#define STDOUT_FILENO 1
 
-typedef enum e_node_type {
-	LOGICAL,
-	COMMAND,
-	REDIRECT,
-}t_node_type;
-
+// Logical type of node
 typedef enum e_logical_type {
-	NaL,
 	ROOT,
 	PIPE,
 }t_logical_type;
 
+// Type of token
 typedef enum e_token_type {
-	T_STRING,
-	T_PIPE,
 	T_SEMICOLON,
+	T_PIPE,
 	T_AMPERSAND,
 	T_REDIRECTING_OUTPUT,
+	T_STRING,
 }t_token_type;
 
-typedef struct s_node t_node;
-typedef struct s_token_node t_token;
-
-typedef struct s_token_node {
+// token struct
+typedef struct s_token t_token;
+typedef struct s_token {
+	// Type of token
 	t_token_type type;
 	char *str;
 	t_token *next;
 }t_token;
 
+// node struct
+typedef struct s_node t_node;
 typedef struct s_node {
-	// Node info
-	t_node_type type;
-	t_node *left;
-	t_node *right;
+	// Pointer of the next node
+	t_node *next;
 
-	// Data to use if Node is logical node
+	// Logical type of node : Root(new or command after semicolon) or Pipe(command after pipe)
 	t_logical_type logical_type;
 
-	// Data to use if Node is command node
-	char *command_path;
+	// Command argv
 	char **command_arg;
+
+	// If command need to execute background => 1 / else => 0
 	int is_background;
 
-	// Data to use if Node is redirect node
+	// If there is redirect, redirect filename and fds
 	char *redirect_filename;
 	int in_fd;
 	int out_fd;
@@ -133,7 +131,7 @@ void token_push(t_token **lst, t_token *new) {
 }
 
 int is_string_char(char c) {
-	if (!c || c == ' ' || c == '&' || c == '|' || c == '>')
+	if (!c || c == ' ' || c == '&' || c == '|' || c == '>' || c == ';')
 		return (0);
 	return (1);
 }
@@ -159,7 +157,7 @@ t_token *tokenize(char *input) {
 			while (*(input + idx + 1) == ' ')
 				++idx;
 		}
-			// tokenize PIPE
+			// tokenize pipe
 		else if (*(input + idx) == '|') {
 			token_push(&token_list, new_token(T_PIPE, NULL));
 		}
@@ -184,10 +182,87 @@ t_token *tokenize(char *input) {
 			idx += (i - 1);
 		}
 	}
-
 	return (token_list);
 }
 
+t_node *new_node(t_logical_type logical_type) {
+	t_node *new;
+
+	new = (t_node *)malloc(sizeof(t_node));
+	if (!new)
+		return (NULL);
+	new->next = NULL;
+	new->logical_type = logical_type;
+	new->command_arg = NULL;
+	new->is_background = 0;
+	new->redirect_filename = NULL;
+	new->in_fd = STDIN_FILENO;
+	new->out_fd = STDOUT_FILENO;
+	new->pid = 0;
+	return (new);
+}
+
+t_token *token_shift(t_token **token_list) {
+	t_token *temp;
+
+	temp = *token_list;
+	if (temp)
+		*token_list = (*token_list)->next;
+	return (temp);
+}
+
+void parse_token_list(t_node **head, t_token **token_list);
+
+void parse_token_list(t_node **head, t_token **token_list) {
+	t_token *temp;
+	char *cmd_arg[max_args] = {0,};
+	int cmd_cnt = -1;
+
+	// Get token by shifting from token list
+	temp = token_shift(token_list);
+
+	// Parse Token to Node
+	while (temp && temp->type != T_PIPE && temp->type != T_SEMICOLON) {
+		// Parse redirecting output
+		if (temp->type == T_REDIRECTING_OUTPUT && temp->next && temp->next->type == T_STRING) {
+			free(temp);
+			temp = token_shift(token_list);
+			(*head)->redirect_filename = temp->str;
+			free(temp);
+		}
+			// Parse background execute
+		else if (temp->type == T_AMPERSAND && (!temp->next || temp->next->type == T_SEMICOLON)) {
+			(*head)->is_background = 1;
+			free(temp);
+		}
+			// Parse command
+		else {
+			if (++cmd_cnt < max_args)
+				cmd_arg[cmd_cnt] = temp->str;
+			free(temp);
+		}
+
+		// Shift to the next token
+		temp = token_shift(token_list);
+	}
+
+	// Make cmd arg
+	(*head)->command_arg = malloc(sizeof(char *) * (cmd_cnt + 1));
+	if (cmd_cnt == max_args)
+		--cmd_cnt;
+	for (int i = 0; i < cmd_cnt + 1; ++i) {
+		(*head)->command_arg[i] = cmd_arg[i];
+	}
+	(*head)->command_arg[cmd_cnt + 1] = NULL;
+
+	// If there are token left in token_list, add new node to node_list
+	// Then, continue parsing token, by call this function recursively
+	if (temp) {
+		(*head)->next = new_node((t_logical_type)temp->type);
+		free(temp);
+		parse_token_list(&((*head)->next), token_list);
+	}
+}
 
 // Run a command.
 int runcmd(char *cmd) {
@@ -218,11 +293,15 @@ int runcmd(char *cmd) {
 		// Assignment 1: Shell
 
 		t_token *token_list = tokenize(cmd);
+		t_node *node_list = new_node(ROOT);
+		parse_token_list(&node_list, &token_list);
 
-		// print token
-		while (token_list) {
-			printf("|||%s|||%d\n", token_list->str, token_list->type);
-			token_list = token_list->next;
+		// print node
+		while (node_list) {
+			printf("logical type : %d | cmdarg1 : %s | cmdarg2 : %s | isbackground : %d | redirect_filename : %s |\n",
+				   node_list->logical_type, node_list->command_arg[0], node_list->command_arg[1],
+				   node_list->is_background, node_list->redirect_filename);
+			node_list = node_list->next;
 		}
 
 		// Create a child process
