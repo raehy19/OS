@@ -44,6 +44,8 @@ int main(int argc, char **argv) {
 	exit(0);
 }
 
+// ********** Assignment start **********
+
 #define NULL 0
 #define STDIN_FILENO 0
 #define STDOUT_FILENO 1
@@ -89,11 +91,9 @@ typedef struct s_node {
 
 	// If there is redirect, redirect filename and fds
 	char *redirect_filename;
-	int in_fd;
-	int out_fd;
-	int pid;
 }t_node;
 
+// memory allocation and initialize token
 t_token *new_token(t_token_type type, char *str) {
 	t_token *new;
 
@@ -106,6 +106,7 @@ t_token *new_token(t_token_type type, char *str) {
 	return (new);
 }
 
+// get last token of the token list
 t_token *lst_last_token(t_token *lst) {
 	t_token *temp;
 
@@ -117,6 +118,7 @@ t_token *lst_last_token(t_token *lst) {
 	return (temp);
 }
 
+// push token to token list
 void token_push(t_token **lst, t_token *new) {
 	t_token *temp;
 
@@ -130,12 +132,14 @@ void token_push(t_token **lst, t_token *new) {
 	temp->next = new;
 }
 
+// check if char is for string
 int is_string_char(char c) {
 	if (!c || c == ' ' || c == '&' || c == '|' || c == '>' || c == ';')
 		return (0);
 	return (1);
 }
 
+// define strndup
 char *ft_strndup(const char *s1, int len) {
 	char *dst;
 
@@ -146,6 +150,7 @@ char *ft_strndup(const char *s1, int len) {
 	return (memmove(dst, s1, len));
 }
 
+// tokenize long command string to token
 t_token *tokenize(char *input) {
 	t_token *token_list = NULL;
 	int idx = -1;
@@ -185,6 +190,7 @@ t_token *tokenize(char *input) {
 	return (token_list);
 }
 
+// memory allocation and initialize node
 t_node *new_node(t_logical_type logical_type) {
 	t_node *new;
 
@@ -196,12 +202,10 @@ t_node *new_node(t_logical_type logical_type) {
 	new->command_arg = NULL;
 	new->is_background = 0;
 	new->redirect_filename = NULL;
-	new->in_fd = STDIN_FILENO;
-	new->out_fd = STDOUT_FILENO;
-	new->pid = 0;
 	return (new);
 }
 
+// get first element of token list, make head of token list to second element
 t_token *token_shift(t_token **token_list) {
 	t_token *temp;
 
@@ -211,6 +215,7 @@ t_token *token_shift(t_token **token_list) {
 	return (temp);
 }
 
+// parse tokenized list to node list
 void parse_token_list(t_node **head, t_token **token_list);
 
 void parse_token_list(t_node **head, t_token **token_list) {
@@ -264,19 +269,33 @@ void parse_token_list(t_node **head, t_token **token_list) {
 	}
 }
 
+// execute node
 int execute(t_node *temp) {
+	if (temp->command_arg == NULL || temp->command_arg[0] == NULL)
+		return (1);
+	else if (!strcmp(temp->command_arg[0], "exit"))
+		return (0);
+	else if (!strncmp(temp->command_arg[0], "cd", 2)) {          // cd command
+		if (chdir(temp->command_arg[1]) < 0) {
+			fprintf(2, "Cannot cd %s\n", temp->command_arg[1]);
+		}
+		return (1);
+	}
+
 	int fd[2];
 	int has_pipe = (temp->next && temp->next->logical_type == PIPE);
 
 	// If it has pipe, create pipe
 	if (has_pipe) {
 		pipe(fd);
-				printf("pipe created fd[0] : %d | fd[1] : %d\n", fd[0], fd[1]);
+		// Create one more child process
 		if (fork() == 0) {
+			// Pipe redirect : First Process
 			close(STDOUT_FILENO);
 			dup(fd[1]);
 			close(fd[0]);
 			close(fd[1]);
+			// Execute command
 			exec(temp->command_arg[0], temp->command_arg);
 			// Print error if exec function fail
 			fprintf(2, "Cannot execute %s\n", temp->command_arg[0]);
@@ -289,20 +308,20 @@ int execute(t_node *temp) {
 
 	// Child process (pid == 0)
 	if (pid == 0) {
-		fprintf(1, "child process (pid=%d)\n", getpid());
-
 		// If it has redirect, redirect output
 		if (temp->redirect_filename) {
 			close(STDOUT_FILENO);
 			open(temp->redirect_filename, O_WRONLY | O_CREATE | O_TRUNC);
 		}
 
-		// If it has pipe
+		// If it has pipe, this child process is second child process
 		if (has_pipe) {
+			// Pipe redirect : Second Process
 			close(STDIN_FILENO);
 			dup(fd[0]);
 			close(fd[0]);
 			close(fd[1]);
+			// Execute command by recursive call (for the multiple pipe)
 			execute(temp->next);
 			exit(1);
 		}
@@ -314,7 +333,6 @@ int execute(t_node *temp) {
 			fprintf(2, "Cannot execute %s\n", temp->command_arg[0]);
 			exit(1);
 		}
-
 	}
 		// Parent process (pid > 0)
 	else if (pid > 0) {
@@ -323,23 +341,23 @@ int execute(t_node *temp) {
 
 		// If it has pipe
 		if (has_pipe) {
+			// Close pipe
 			close(fd[0]);
 			close(fd[1]);
+			// Wait for child process
 			wait(NULL);
 		}
 
 		// If it needs to execute background, do not wait for child process to finish
+		// Else, wait for child process
 		if (!temp->is_background) {
 			wait(NULL);
 		}
-
-		fprintf(2, "parent process (pid=%d) of child process (pid=%d)\n", getpid(), pid);
 	}
 		// fork failed (pid < 0)
 	else {
 		// Print error if fork function fail
 		fprintf(2, "fork() failed\n");
-		return (1);
 	}
 	return (1);
 }
@@ -372,30 +390,27 @@ int runcmd(char *cmd) {
 		// EEE3535 Operating Systems
 		// Assignment 1: Shell
 
+		// tokenize cmd to token list (linked list)
 		t_token *token_list = tokenize(cmd);
+
+		// make Head of node list
 		t_node *node_list = new_node(ROOT);
+
+		// parse token list to node list (linked list)
 		parse_token_list(&node_list, &token_list);
+
 
 		t_node *temp = node_list;
 		while (temp) {
 			if (!execute(temp))
-				return (1);
+				return (0);
 			// Execute next node
 			temp = temp->next;
 			while (temp && temp->logical_type == PIPE)
 				temp = temp->next;
 		}
-
-//		// print node
-//		while (node_list) {
-//			printf("logical type : %d | cmdarg1 : %s | cmdarg2 : %s | isbackground : %d | redirect_filename : %s |\n",
-//				   node_list->logical_type, node_list->command_arg[0], node_list->command_arg[1],
-//				   node_list->is_background, node_list->redirect_filename);
-//
-//
-//			node_list = node_list->next;
-//		}
-
 	}
 	return 1;
 }
+
+// ********** Assignment end **********
