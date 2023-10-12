@@ -89,3 +89,11 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64
+sys_pstate(void)
+{
+  // EEE3535 Operating Systems
+  // Assignment 2: System Call and Process
+  return 0;
+}
