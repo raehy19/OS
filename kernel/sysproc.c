@@ -87,13 +87,7 @@ sys_uptime(void) {
 // A xv6-riscv syscall can take up to six arguments.
 #define max_args 6
 
-typedef enum e_state_type {
-	Sleep = 1,
-	Runnable = 2,
-	eXecuting = 4,
-	Zombie = 8
-}t_state_type;
-
+// proc info struct for store info of proc
 typedef struct s_proc_info {
 	int pid;
 	enum procstate state;
@@ -101,6 +95,15 @@ typedef struct s_proc_info {
 	int time_created;
 	char *name;
 }t_proc_info;
+
+// check if pid is in pid list
+int is_in_pid_list(int *pid_list, int pid_list_idx, int pid) {
+	for (int i = 0; i < pid_list_idx; ++i) {
+		if (pid_list[i] == pid)
+			return (1);
+	}
+	return (0);
+}
 
 //////////    //////////   //////////   //////////    //////////
 
@@ -121,6 +124,8 @@ sys_pstate() {
 
 	// arg variable
 	int arg;
+	int pid_list[6];
+	int pid_list_idx = 0;
 
 	// parse argument
 	for (int i = 0; i < max_args; ++i) {
@@ -134,12 +139,18 @@ sys_pstate() {
 		}
 			// arg == positive int : => PID add PID to Display List
 		else if (arg > 0) {
-			printf("pid input : %d\n", arg);
+			// get pid to pid list
+			pid_list[pid_list_idx] = arg;
+			++pid_list_idx;
 		}
 			// (arg == 0) : end of arg
 		else
 			break;
 	}
+
+	// set options for single ps command
+	if (!options && !pid_list_idx)
+		options = 0b1111;
 
 	// 1st element of all proc list
 	struct proc *p_ptr = myproc()->all_proc_list;
@@ -176,14 +187,19 @@ sys_pstate() {
 		++p_info_list_idx;
 	}
 
+	// list to print state
 	char *state_print[4] = {"S", "R", "X", "Z"};
 
+	// print header
 	printf("PID\tPPID\tState\tRuntime\tName\t\n");
 
 	// print all proc info
 	for (int i = 0; i < p_info_list_idx; ++i) {
 		// check info to print by executing bit & operation with options and proc state
-		if ((1 << (p_info_list[i].state - 2)) & options) {
+		// check
+		if (((1 << (p_info_list[i].state - 2)) & options) ||
+			is_in_pid_list(pid_list, pid_list_idx, p_info_list[i].pid)) {
+
 			// print PID, PPID
 			printf("%d\t%d\t", p_info_list[i].pid, p_info_list[i].ppid);
 
