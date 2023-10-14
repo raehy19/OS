@@ -11,12 +11,27 @@ void print_help(int argc, char **argv) {
 			argv[0], argc > 7 ? ": too many args" : "");
 }
 
+//////////   Assignment 2 : System Call and Process   //////////
+
 typedef enum e_arg_type {
 	Sleep = -1,
 	Runnable = -2,
 	eXecuting = -4,
 	Zombie = -8
 }t_arg_type;
+
+// arg check function cause atoi convert until non-number character
+int is_valid_num(char *str) {
+	// check if only number exist in arg
+	while (*str) {
+		if (*str < '0' || *str > '9')
+			return (0);
+		++str;
+	}
+	return (1);
+}
+
+//////////    //////////   //////////   //////////    //////////
 
 int main(int argc, char **argv) {
 	// Print a help message.
@@ -34,15 +49,22 @@ int main(int argc, char **argv) {
 	   In this skeleton code, args[] is initialized to zeros,
 	   so technically no arguments are passed to the pstate() syscall. */
 
-	for (int i = 1; i < argc; ++i) {
-//		printf("arg %d : %s %d\n", i, argv[i], atoi(argv[i]));
+	//////////   Assignment 2 : System Call and Process   //////////
 
+	// parse arg
+	for (int i = 1; i < argc; ++i) {
+
+		// convert arg to int
 		int int_val = atoi(argv[i]);
 
-		if (int_val) {
+		// if it can convert to int and valid, store and pass to pstate call
+		if (int_val && is_valid_num(argv[i])) {
 			args[i - 1] = int_val;
-		} else if ((argv[i][0] == 'S' || argv[i][0] == 'R' || argv[i][0] == 'X' ||
-					argv[i][0] == 'Z') && argv[i][1] == '\0') {
+		}
+			// check arg is option
+		else if ((argv[i][0] == 'S' || argv[i][0] == 'R' || argv[i][0] == 'X' ||
+				  argv[i][0] == 'Z') && argv[i][1] == '\0') {
+			// set args as negative number for each option
 			switch (argv[i][0]) {
 				case 'S' :
 					args[i - 1] = Sleep;
@@ -57,11 +79,15 @@ int main(int argc, char **argv) {
 					args[i - 1] = Zombie;
 					break;
 			}
-		} else {
+		}
+			// print help for invalid arg
+		else {
 			print_help(argc, argv);
 			exit(1);
 		}
 	}
+
+	//////////    //////////   //////////   //////////    //////////
 
 	// Call the pstate() syscall.
 	int ret = pstate(args[0], args[1], args[2], args[3], args[4], args[5]);
