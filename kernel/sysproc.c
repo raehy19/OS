@@ -111,7 +111,15 @@ sys_pstate() {
 
 	//////////   Assignment 2 : System Call and Process   //////////
 
-	unsigned char options = 0;
+	// set options with 4 bits
+	//   S (Sleep)     = 1 (0b0001)
+	//   R (Runnable)  = 2 (0b0010)
+	//   X (eXecuting) = 4 (0b0100)
+	//   Z (Zombie)    = 8 (0b1000)
+	// ex) S R => options == 0b0001 & 0b0010 == 0b0011
+	unsigned char options = 0b0000;
+
+	// arg variable
 	int arg;
 
 	// parse argument
@@ -121,6 +129,7 @@ sys_pstate() {
 
 		// arg == S, R, X, Z : set options
 		if (arg < 0) {
+			// minus value of arg is passed, so change sign and get options
 			options |= (-arg);
 		}
 			// arg == positive int : => PID add PID to Display List
@@ -131,8 +140,6 @@ sys_pstate() {
 		else
 			break;
 	}
-
-	printf("options : %d\n", options);
 
 	// 1st element of all proc list
 	struct proc *p_ptr = myproc()->all_proc_list;
@@ -169,12 +176,42 @@ sys_pstate() {
 		++p_info_list_idx;
 	}
 
+	char *state_print[4] = {"S", "R", "X", "Z"};
+
 	printf("PID\tPPID\tState\tRuntime\tName\t\n");
 
 	// print all proc info
 	for (int i = 0; i < p_info_list_idx; ++i) {
-		printf("%d\t%d\t%d\t%d\t%s\n", p_info_list[i].pid, p_info_list[i].ppid,
-			   p_info_list[i].state, p_info_list[i].time_created, p_info_list[i].name);
+		// check info to print by executing bit & operation with options and proc state
+		if ((1 << (p_info_list[i].state - 2)) & options) {
+			// print PID, PPID
+			printf("%d\t%d\t", p_info_list[i].pid, p_info_list[i].ppid);
+
+			// print State
+			printf("%s\t", state_print[(p_info_list[i].state - 2)]);
+
+			// held lock
+			acquire(&tickslock);
+
+			// get current time
+			int time = ticks;
+
+			// release lock
+			release(&tickslock);
+
+			// get time diff  => time == tick count while process running
+			time -= p_info_list[i].time_created;
+
+			// 1tick == 100ms == 0.1s
+			// time *= 100 => time == runtime in millisecond
+			time *= 100;
+
+			// print Runtime
+			printf("%d:%d.%d\t", time / 60000, (time % 60000) / 1000, (time % 1000) / 100);
+
+			// print Name
+			printf("%s\n", p_info_list[i].name);
+		}
 	}
 
 	return (0);
