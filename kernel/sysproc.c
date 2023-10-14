@@ -82,27 +82,51 @@ sys_uptime(void) {
 	return xticks;
 }
 
+//////////   Assignment 2 : System Call and Process   //////////
+
+// A xv6-riscv syscall can take up to six arguments.
+#define max_args 6
+
+typedef enum e_state_type {
+	Sleep = 1,
+	Runnable = 2,
+	eXecuting = 4,
+	Zombie = 8
+}t_state_type;
+
+
 uint64
 sys_pstate() {
 	// EEE3535 Operating Systems
 	// Assignment 2: System Call and Process
 
-	printf("ps\n");
+	unsigned char options = 0;
+	int arg;
 
-	int temp;
 
-	argint(0, &temp);
-	printf("argint 0 : %d \n", temp);
-	argint(1, &temp);
-	printf("argint 1 : %d \n", temp);
-	argint(2, &temp);
-	printf("argint 2 : %d \n", temp);
-	argint(3, &temp);
-	printf("argint 3 : %d \n", temp);
-	argint(4, &temp);
-	printf("argint 4 : %d \n", temp);
-	argint(5, &temp);
-	printf("argint 5 : %d \n", temp);
+	(void)options;
+	for (int i = 0; i < max_args; ++i) {
+		// read argument value
+		argint(i, &arg);
+
+//		printf("\nargint %d : %d\n", i, arg);
+
+		// arg == S, R, X, Z : set options
+		if (arg < 0) {
+			options |= (-arg);
+		}
+			// arg == positive int : => PID add PID to Display List
+		else if (arg > 0) {
+			printf("pid input : %d\n", arg);
+		}
+			// (arg == 0) : end of arg
+		else
+			break;
+	}
+
+//	printf("PID\tPPID\tState\tRuntime\tName\t\n");
+
+	printf("options : %d\n", options);
 
 	return (0);
 }

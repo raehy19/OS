@@ -11,6 +11,13 @@ void print_help(int argc, char **argv) {
 			argv[0], argc > 7 ? ": too many args" : "");
 }
 
+typedef enum e_arg_type {
+	Sleep = -1,
+	Runnable = -2,
+	eXecuting = -4,
+	Zombie = -8
+}t_arg_type;
+
 int main(int argc, char **argv) {
 	// Print a help message.
 	if (argc > 7) {
@@ -28,9 +35,31 @@ int main(int argc, char **argv) {
 	   so technically no arguments are passed to the pstate() syscall. */
 
 	for (int i = 1; i < argc; ++i) {
-		printf("arg %d : %s\n", i, argv[i]);
-		if (atoi(argv[i])) {
-			args[i - 1] = atoi(argv[i]);
+//		printf("arg %d : %s %d\n", i, argv[i], atoi(argv[i]));
+
+		int int_val = atoi(argv[i]);
+
+		if (int_val) {
+			args[i - 1] = int_val;
+		} else if ((argv[i][0] == 'S' || argv[i][0] == 'R' || argv[i][0] == 'X' ||
+					argv[i][0] == 'Z') && argv[i][1] == '\0') {
+			switch (argv[i][0]) {
+				case 'S' :
+					args[i - 1] = Sleep;
+					break;
+				case 'R' :
+					args[i - 1] = Runnable;
+					break;
+				case 'X' :
+					args[i - 1] = eXecuting;
+					break;
+				case 'Z' :
+					args[i - 1] = Zombie;
+					break;
+			}
+		} else {
+			print_help(argc, argv);
+			exit(1);
 		}
 	}
 
