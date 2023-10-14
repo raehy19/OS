@@ -94,22 +94,30 @@ typedef enum e_state_type {
 	Zombie = 8
 }t_state_type;
 
+typedef struct s_proc_info {
+	int pid;
+	enum procstate state;
+	int ppid;
+	int time_created;
+	char *name;
+}t_proc_info;
+
+//////////    //////////   //////////   //////////    //////////
 
 uint64
 sys_pstate() {
 	// EEE3535 Operating Systems
 	// Assignment 2: System Call and Process
 
+	//////////   Assignment 2 : System Call and Process   //////////
+
 	unsigned char options = 0;
 	int arg;
 
-
-	(void)options;
+	// parse argument
 	for (int i = 0; i < max_args; ++i) {
 		// read argument value
 		argint(i, &arg);
-
-//		printf("\nargint %d : %d\n", i, arg);
 
 		// arg == S, R, X, Z : set options
 		if (arg < 0) {
@@ -124,9 +132,52 @@ sys_pstate() {
 			break;
 	}
 
-//	printf("PID\tPPID\tState\tRuntime\tName\t\n");
-
 	printf("options : %d\n", options);
 
+	// 1st element of all proc list
+	struct proc *p_ptr = myproc()->all_proc_list;
+
+	// new list and idx for store required data
+	t_proc_info p_info_list[NPROC];
+	int p_info_list_idx = 0;
+
+	// copy required data from proc list to p_info_list
+	for (int i = 0; i < NPROC; ++i, ++p_ptr) {
+		// held lock
+		acquire(&p_ptr->lock);
+
+		// Disregard Unused state proc
+		if (p_ptr->state == UNUSED) {
+			// release lock
+			release(&p_ptr->lock);
+			continue;
+		}
+
+		// Copy required data to list
+		p_info_list[p_info_list_idx].pid = p_ptr->pid;
+		p_info_list[p_info_list_idx].state = p_ptr->state;
+
+		// release lock
+		release(&p_ptr->lock);
+
+		// Copy required data to list
+		p_info_list[p_info_list_idx].ppid = p_ptr->parent_pid;
+		p_info_list[p_info_list_idx].name = p_ptr->name;
+		p_info_list[p_info_list_idx].time_created = p_ptr->time_created;
+
+		// increase idx
+		++p_info_list_idx;
+	}
+
+	printf("PID\tPPID\tState\tRuntime\tName\t\n");
+
+	// print all proc info
+	for (int i = 0; i < p_info_list_idx; ++i) {
+		printf("%d\t%d\t%d\t%d\t%s\n", p_info_list[i].pid, p_info_list[i].ppid,
+			   p_info_list[i].state, p_info_list[i].time_created, p_info_list[i].name);
+	}
+
 	return (0);
+
+	//////////    //////////   //////////   //////////    //////////
 }
