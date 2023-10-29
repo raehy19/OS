@@ -7,230 +7,85 @@
 #include "proc.h"
 
 uint64
-sys_exit(void) {
-	int n;
-	argint(0, &n);
-	exit(n);
-	return 0;  // not reached
+sys_exit(void)
+{
+  int n;
+  argint(0, &n);
+  exit(n);
+  return 0;  // not reached
 }
 
 uint64
-sys_getpid(void) {
-	return myproc()->pid;
+sys_getpid(void)
+{
+  return myproc()->pid;
 }
 
 uint64
-sys_fork(void) {
-	return fork();
+sys_fork(void)
+{
+  return fork();
 }
 
 uint64
-sys_wait(void) {
-	uint64 p;
-	argaddr(0, &p);
-	return wait(p);
+sys_wait(void)
+{
+  uint64 p;
+  argaddr(0, &p);
+  return wait(p);
 }
 
 uint64
-sys_sbrk(void) {
-	uint64 addr;
-	int n;
+sys_sbrk(void)
+{
+  uint64 addr;
+  int n;
 
-	argint(0, &n);
-	addr = myproc()->sz;
-	if (growproc(n) < 0)
-		return -1;
-	return addr;
+  argint(0, &n);
+  addr = myproc()->sz;
+  if(growproc(n) < 0)
+    return -1;
+  return addr;
 }
 
 uint64
-sys_sleep(void) {
-	int n;
-	uint ticks0;
+sys_sleep(void)
+{
+  int n;
+  uint ticks0;
 
-	argint(0, &n);
-	acquire(&tickslock);
-	ticks0 = ticks;
-	while (ticks - ticks0 < n) {
-		if (killed(myproc())) {
-			release(&tickslock);
-			return -1;
-		}
-		sleep(&ticks, &tickslock);
-	}
-	release(&tickslock);
-	return 0;
+  argint(0, &n);
+  acquire(&tickslock);
+  ticks0 = ticks;
+  while(ticks - ticks0 < n){
+    if(killed(myproc())){
+      release(&tickslock);
+      return -1;
+    }
+    sleep(&ticks, &tickslock);
+  }
+  release(&tickslock);
+  return 0;
 }
 
 uint64
-sys_kill(void) {
-	int pid;
+sys_kill(void)
+{
+  int pid;
 
-	argint(0, &pid);
-	return kill(pid);
+  argint(0, &pid);
+  return kill(pid);
 }
 
 // return how many clock tick interrupts have occurred
 // since start.
 uint64
-sys_uptime(void) {
-	uint xticks;
+sys_uptime(void)
+{
+  uint xticks;
 
-	acquire(&tickslock);
-	xticks = ticks;
-	release(&tickslock);
-	return xticks;
-}
-
-//////////   Assignment 2 : System Call and Process   //////////
-
-// A xv6-riscv syscall can take up to six arguments.
-#define max_args 6
-
-// proc info struct for store info of proc
-typedef struct s_proc_info {
-	int pid;
-	enum procstate state;
-	int ppid;
-	int time_created;
-	char *name;
-}t_proc_info;
-
-// check if pid is in pid list
-int is_in_pid_list(int *pid_list, int pid_list_idx, int pid) {
-	for (int i = 0; i < pid_list_idx; ++i) {
-		if (pid_list[i] == pid)
-			return (1);
-	}
-	return (0);
-}
-
-//////////    //////////   //////////   //////////    //////////
-
-uint64
-sys_pstate() {
-	// EEE3535 Operating Systems
-	// Assignment 2: System Call and Process
-
-	//////////   Assignment 2 : System Call and Process   //////////
-
-	// set options with 4 bits
-	//   S (Sleep)     = 1 (0b0001)
-	//   R (Runnable)  = 2 (0b0010)
-	//   X (eXecuting) = 4 (0b0100)
-	//   Z (Zombie)    = 8 (0b1000)
-	// ex) S R => options == 0b0001 & 0b0010 == 0b0011
-	unsigned char options = 0b0000;
-
-	// arg variable
-	int arg;
-	int pid_list[6];
-	int pid_list_idx = 0;
-
-	// parse argument
-	for (int i = 0; i < max_args; ++i) {
-		// read argument value
-		argint(i, &arg);
-
-		// arg == S, R, X, Z : set options
-		if (arg < 0) {
-			// minus value of arg is passed, so change sign and get options
-			options |= (-arg);
-		}
-			// arg == positive int : => PID add PID to Display List
-		else if (arg > 0) {
-			// get pid to pid list
-			pid_list[pid_list_idx] = arg;
-			++pid_list_idx;
-		}
-			// (arg == 0) : end of arg
-		else
-			break;
-	}
-
-	// set options for single ps command
-	if (!options && !pid_list_idx)
-		options = 0b1111;
-
-	// 1st element of all proc list
-	struct proc *p_ptr = myproc()->all_proc_list;
-
-	// new list and idx for store required data
-	t_proc_info p_info_list[NPROC];
-	int p_info_list_idx = 0;
-
-	// copy required data from proc list to p_info_list
-	for (int i = 0; i < NPROC; ++i, ++p_ptr) {
-		// held lock
-		acquire(&p_ptr->lock);
-
-		// Disregard Unused state proc
-		if (p_ptr->state == UNUSED) {
-			// release lock
-			release(&p_ptr->lock);
-			continue;
-		}
-
-		// Copy required data to list
-		p_info_list[p_info_list_idx].pid = p_ptr->pid;
-		p_info_list[p_info_list_idx].state = p_ptr->state;
-
-		// release lock
-		release(&p_ptr->lock);
-
-		// Copy required data to list
-		p_info_list[p_info_list_idx].ppid = p_ptr->parent_pid;
-		p_info_list[p_info_list_idx].name = p_ptr->name;
-		p_info_list[p_info_list_idx].time_created = p_ptr->time_created;
-
-		// increase idx
-		++p_info_list_idx;
-	}
-
-	// list to print state
-	char *state_print[4] = {"S", "R", "X", "Z"};
-
-	// print header
-	printf("PID\tPPID\tState\tRuntime\tName\t\n");
-
-	// print all proc info
-	for (int i = 0; i < p_info_list_idx; ++i) {
-		// check info to print by executing bit & operation with options and proc state
-		// check
-		if (((1 << (p_info_list[i].state - 2)) & options) ||
-			is_in_pid_list(pid_list, pid_list_idx, p_info_list[i].pid)) {
-
-			// print PID, PPID
-			printf("%d\t%d\t", p_info_list[i].pid, p_info_list[i].ppid);
-
-			// print State
-			printf("%s\t", state_print[(p_info_list[i].state - 2)]);
-
-			// held lock
-			acquire(&tickslock);
-
-			// get current time
-			int time = ticks;
-
-			// release lock
-			release(&tickslock);
-
-			// get time diff  => time == tick count while process running
-			time -= p_info_list[i].time_created;
-
-			// 1tick == 100ms == 0.1s
-			// time *= 100 => time == runtime in millisecond
-			time *= 100;
-
-			// print Runtime
-			printf("%d:%d.%d\t", time / 60000, (time % 60000) / 1000, (time % 1000) / 100);
-
-			// print Name
-			printf("%s\n", p_info_list[i].name);
-		}
-	}
-
-	return (0);
-
-	//////////    //////////   //////////   //////////    //////////
+  acquire(&tickslock);
+  xticks = ticks;
+  release(&tickslock);
+  return xticks;
 }
