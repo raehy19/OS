@@ -439,33 +439,65 @@ wait(uint64 addr) {
 //  - eventually that process transfers control
 //    via swtch back to the scheduler.
 void
-scheduler(void)
-{
-  struct proc *p;
-  struct cpu *c = mycpu();
-  
-  c->proc = 0;
-  for(;;){
-    // Avoid deadlock by ensuring that devices can interrupt.
-    intr_on();
+scheduler(void) {
+	struct proc *p;
+	struct cpu *c = mycpu();
 
-    for(p = proc; p < &proc[NPROC]; p++) {
-      acquire(&p->lock);
-      if(p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
+//////////     Assignment 3 : Scheduling     //////////
+	int total_tickets;
+	int winner;
+	int counter;
+//////////     //////////     //////////     //////////
 
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
-      }
-      release(&p->lock);
-    }
-  }
+	c->proc = 0;
+	for (;;) {
+		// Avoid deadlock by ensuring that devices can interrupt.
+		intr_on();
+
+//////////     Assignment 3 : Scheduling     //////////
+		// Count total amounts of tickets
+		total_tickets = 0;
+		for (p = proc; p < &proc[NPROC]; ++p) {
+			acquire(&p->lock);
+			if (p->state == RUNNABLE) {
+				total_tickets += p->ticket_cnt;
+				p->draw_cnt += 1;
+			}
+			release(&p->lock);
+		}
+
+		// Generate a winner number
+		winner = rand() % total_tickets;
+
+		// Find a winner
+		counter = 0;
+		for (p = proc; p < &proc[NPROC]; ++p) {
+			acquire(&p->lock);
+			if (p->state == RUNNABLE) {
+				counter += p->ticket_cnt;
+
+				// Found winner
+				if (counter > winner) {
+					// Increase win count
+					p->win_cnt += 1;
+
+					// Switch to chosen process
+					p->state = RUNNING;
+					c->proc = p;
+					swtch(&c->context, &p->context);
+
+					// Process is done running
+					c->proc = 0;
+
+					// Release lock and break
+					release(&p->lock);
+					break;
+				}
+			}
+			release(&p->lock);
+		}
+//////////     //////////     //////////     //////////
+	}
 }
 
 // Switch to scheduler.  Must hold only p->lock
