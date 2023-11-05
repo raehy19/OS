@@ -16,6 +16,7 @@ int nextpid = 1;
 struct spinlock pid_lock;
 
 extern void forkret(void);
+
 static void freeproc(struct proc *p);
 
 extern char trampoline[]; // trampoline.S
@@ -372,8 +373,7 @@ exit(int status) {
 	release(&wait_lock);
 
 //////////     Assignment 3 : Scheduling     //////////
-	printf("pid = %d: tickets = %d, win count = %d, draw count = %d\n",
-		   p->pid, p->ticket_cnt, p->win_cnt, p->draw_cnt);
+	// Print info
 	printf("pid = %d: tickets = %d, winning rate = %d%\n",
 		   p->pid, p->ticket_cnt, 100 * p->win_cnt / p->draw_cnt);
 //////////     //////////     //////////     //////////
@@ -482,7 +482,6 @@ scheduler(void) {
 
 				// Add ticket_cnt to counter
 				counter += p->ticket_cnt;
-
 
 				// Found winner
 				if (counter > winner) {
