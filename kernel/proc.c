@@ -372,10 +372,10 @@ exit(int status) {
 	release(&wait_lock);
 
 //////////     Assignment 3 : Scheduling     //////////
-//	printf("pid = %d: tickets = %d, winning rate = %d%\n",
-//		   p->pid, p->ticket_cnt, (int)(p->win_cnt * 100 / (double)(p->draw_cnt)));
 	printf("pid = %d: tickets = %d, win count = %d, draw count = %d\n",
 		   p->pid, p->ticket_cnt, p->win_cnt, p->draw_cnt);
+	printf("pid = %d: tickets = %d, winning rate = %d%\n",
+		   p->pid, p->ticket_cnt, 100 * p->win_cnt / p->draw_cnt);
 //////////     //////////     //////////     //////////
 
 	// Jump into the scheduler, never to return.
@@ -460,8 +460,13 @@ scheduler(void) {
 		for (p = proc; p < &proc[NPROC]; ++p) {
 			acquire(&p->lock);
 			if (p->state == RUNNABLE) {
+
+				// Count tickets
 				total_tickets += p->ticket_cnt;
-				p->draw_cnt += 1;
+
+				// Increase draw count
+				++(p->draw_cnt);
+
 			}
 			release(&p->lock);
 		}
@@ -474,12 +479,15 @@ scheduler(void) {
 		for (p = proc; p < &proc[NPROC]; ++p) {
 			acquire(&p->lock);
 			if (p->state == RUNNABLE) {
+
+				// Add ticket_cnt to counter
 				counter += p->ticket_cnt;
+
 
 				// Found winner
 				if (counter > winner) {
 					// Increase win count
-					p->win_cnt += 1;
+					++(p->win_cnt);
 
 					// Switch to chosen process
 					p->state = RUNNING;
@@ -532,6 +540,13 @@ yield(void) {
 	struct proc *p = myproc();
 	acquire(&p->lock);
 	p->state = RUNNABLE;
+
+//////////     Assignment 3 : Scheduling     //////////
+	if (p->ticket_cnt > 5) {
+		--(p->ticket_cnt);
+	}
+//////////     //////////     //////////     //////////
+
 	sched();
 	release(&p->lock);
 }
@@ -575,6 +590,12 @@ sleep(void *chan, struct spinlock *lk) {
 	// Go to sleep.
 	p->chan = chan;
 	p->state = SLEEPING;
+
+//////////     Assignment 3 : Scheduling     //////////
+	if (p->ticket_cnt < 100) {
+		++(p->ticket_cnt);
+	}
+//////////     //////////     //////////     //////////
 
 	sched();
 
