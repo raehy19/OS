@@ -39,3 +39,9 @@ void free(void*);
 int atoi(const char*);
 int memcmp(const void *, const void *, uint);
 void *memcpy(void *, const void *, uint);
+
+// umalloc.c
+void freelist(void);
+
+// random.c
+unsigned urand(void);

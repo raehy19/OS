@@ -22,6 +22,19 @@ static Header base;
 static Header *freep;
 
 void
+freelist(void) { // Show the chain of free blocks.
+  int i = 0;
+  Header* p = &base;
+
+  printf("Free list:\n");
+  if(!freep) { printf("--\n"); return; } // Free list hasn't been created.
+  for(p = p->s.ptr; p != &base; p = p->s.ptr) {
+    printf("[%d] p = %p, p->s.size = %d bytes, p->s.ptr = %p\n",
+           ++i, p, sizeof(Header) * p->s.size, p->s.ptr);
+  } printf("\n");
+}
+
+void
 free(void *ap)
 {
   Header *bp, *p;
