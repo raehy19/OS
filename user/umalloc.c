@@ -73,31 +73,80 @@ morecore(uint nu)
   return freep;
 }
 
-void*
-malloc(uint nbytes)
-{
-  Header *p, *prevp;
-  uint nunits;
+//////////     Assignment 4 : Free List     //////////
 
-  nunits = (nbytes + sizeof(Header) - 1)/sizeof(Header) + 1;
-  if((prevp = freep) == 0){
-    base.s.ptr = freep = prevp = &base;
-    base.s.size = 0;
-  }
-  for(p = prevp->s.ptr; ; prevp = p, p = p->s.ptr){
-    if(p->s.size >= nunits){
-      if(p->s.size == nunits)
-        prevp->s.ptr = p->s.ptr;
-      else {
-        p->s.size -= nunits;
-        p += p->s.size;
-        p->s.size = nunits;
-      }
-      freep = prevp;
-      return (void*)(p + 1);
-    }
-    if(p == freep)
-      if((p = morecore(nunits)) == 0)
-        return 0;
-  }
+void *
+malloc(uint nbytes) {
+	// Pointer for iterating Free List
+	Header *p, *prevp;
+	uint nunits;
+
+	// Variables for Best Fit
+	Header *best_fit = 0;          // Pointer of best fit block
+	Header *best_fit_prev = 0;     // Pointer of previous block of best fit block
+
+	// Calculate size of memory block
+	nunits = (nbytes + sizeof(Header) - 1) / sizeof(Header) + 1;
+
+	// If freep == 0, the memory is not allocated, initialize base (Free List)
+	if ((prevp = freep) == 0) {
+		base.s.ptr = freep = prevp = &base;
+		base.s.size = 0;
+	}
+
+	// Infinite iterating Free List to find best fit
+	// If we can't find big enough memory block in Free List,
+	// Request additional memory allocation to find new best fit
+	for (p = prevp->s.ptr;; prevp = p, p = p->s.ptr) {
+
+		// If memory block is big enough
+		if (p->s.size >= nunits) {
+
+			// If it is first block or smaller than the current best fit
+			if (best_fit == 0 || p->s.size < best_fit->s.size) {
+
+				// Update best fit block and previous block of best fit block
+				best_fit = p;
+				best_fit_prev = prevp;
+			}
+		}
+
+		// If iterated(searched) for whole Free List
+		if (p == freep) {
+
+			// If big enough best fit block has been found
+			if (best_fit != 0) {
+
+				// If block size is exactly equal to requested
+				if (best_fit->s.size == nunits) {
+
+					// Use block and remove from Free List
+					best_fit_prev->s.ptr = best_fit->s.ptr;
+				}
+					// If block is bigger than requested
+				else {
+
+					// Reduce size, and move pointer to end of free part of the block
+					best_fit->s.size -= nunits;
+					best_fit += best_fit->s.size;
+
+					// The size of the block to be returned is exactly what was requested
+					best_fit->s.size = nunits;
+				}
+
+				// Update the start of the free list
+				freep = best_fit_prev;
+
+				// Return the block, excluding the header
+				return (void *)(best_fit + 1);
+			}
+
+			// If no memory block is greater than or equal to the requested size, request additional memory
+			// If additional memory request failed, return 0
+			if ((p = morecore(nunits)) == 0)
+				return 0;
+		}
+	}
 }
+
+//////////     //////////    //////////     //////////
