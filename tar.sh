@@ -19,7 +19,7 @@ if [[ `basename $PWD` == $dir ]]; then
     fi
 
     make clean > /dev/null;
-    rm -f $sid.tar install.sh shell.sh syscall.sh sched.sh freelist.sh;
+    rm -f $sid.tar install.sh shell.sh syscall.sh sched.sh freelist.sh paging.sh;
     cd ..;
     tar cf $sid.tar xv6-riscv;
     mv $sid.tar xv6-riscv/;
