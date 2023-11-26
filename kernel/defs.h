@@ -160,9 +160,19 @@ void            kvminit(void);
 void            kvminithart(void);
 void            kvmmap(pagetable_t, uint64, uint64, uint64, int);
 int             mappages(pagetable_t, uint64, uint64, uint64, int);
+
+//////////   Assignment 5 : Paging   //////////
+int             mappages_cow(pagetable_t, uint64, uint64, uint64, int);
+//////////   /////////////////////   //////////
+
 pagetable_t     uvmcreate(void);
 void            uvmfirst(pagetable_t, uchar *, uint);
 uint64          uvmalloc(pagetable_t, uint64, uint64, int);
+
+//////////   Assignment 5 : Paging   //////////
+uint64          uvmalloc_cow(pagetable_t, uint64, uint64, int);
+//////////   /////////////////////   //////////
+
 uint64          uvmdealloc(pagetable_t, uint64, uint64);
 int             uvmcopy(pagetable_t, pagetable_t, uint64);
 void            uvmfree(pagetable_t, uint64);
