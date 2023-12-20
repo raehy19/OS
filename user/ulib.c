@@ -145,3 +145,10 @@ memcpy(void *dst, const void *src, uint n)
 {
   return memmove(dst, src, n);
 }
+
+unsigned rnd = 0;
+unsigned
+urand(void)
+{
+  return rnd = rnd ? ((16807 * rnd) % ((unsigned)-1 >> 1)) : uptime();
+}

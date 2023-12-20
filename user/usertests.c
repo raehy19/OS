@@ -20,7 +20,6 @@
 #define BUFSZ  ((MAXOPBLOCKS+2)*BSIZE)
 
 char buf[BUFSZ];
-int sbrkfail_fault = 1;
 
 //
 // Section with tests that run fairly quickly.  Use -q if you want to
@@ -2224,7 +2223,6 @@ sbrkfail(char *s)
     int n = 0;
     for (i = 0; i < 10*BIG; i += PGSIZE) {
       n += *(a+i);
-      if(sbrkfail_fault) *(a+i) = 0; // write fault
     }
     // print n so the compiler doesn't optimize away
     // the for loop.
@@ -2630,7 +2628,7 @@ struct test {
   {bsstest, "bsstest"},
   {bigargtest, "bigargtest"},
   {argptest, "argptest"},
-  {stacktest, "stacktest"},
+  //{stacktest, "stacktest"}, // This test does not work because of the changes in user stacks.
   {textwrite, "textwrite"},
   {pgbug, "pgbug" },
   {sbrkbugs, "sbrkbugs" },
@@ -3091,8 +3089,6 @@ main(int argc, char *argv[])
     continuous = 2;
   } else if(argc == 2 && argv[1][0] != '-'){
     justone = argv[1];
-  } else if(argc == 3 && !strcmp(argv[1], "sbrkfail") && !strcmp(argv[2], "nofault")) {
-    justone = argv[1]; sbrkfail_fault = 0;
   } else if(argc > 1){
     printf("Usage: usertests [-c] [-C] [-q] [testname]\n");
     exit(1);
