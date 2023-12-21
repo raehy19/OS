@@ -20,3 +20,9 @@
 #define SYS_link   19
 #define SYS_mkdir  20
 #define SYS_close  21
+
+////// Assignment 6 : Thread //////
+#define SYS_tfork  22
+#define SYS_twait  23
+#define SYS_texit  24
+///////////////////////////////////

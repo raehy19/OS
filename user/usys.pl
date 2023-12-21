@@ -36,3 +36,8 @@ entry("getpid");
 entry("sbrk");
 entry("sleep");
 entry("uptime");
+
+# Assignment 6 : Thread
+entry("tfork");
+entry("twait");
+entry("texit");
