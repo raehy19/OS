@@ -152,7 +152,7 @@ allocproc(void) {
 	p->rsz = 0;
 	p->sz = &(p->rsz);
 
-	p->rcwd = 0;
+//	p->rcwd = 0;
 	p->cwd = &(p->rcwd);
 
 	for (int fd = 0; fd < NOFILE; fd++) {
@@ -771,7 +771,8 @@ tfork(void *(*func)(void *), void *arg) {
 	}
 
 	// Copy current working directory
-	t->cwd = p->cwd;
+	t->cwd = &(p->rcwd);
+
 
 	// Copy process name
 	safestrcpy(t->name, p->name, sizeof(p->name));
